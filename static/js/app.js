@@ -15,6 +15,8 @@ class RemoteDesktop {
             startY: 0,
             lastX: 0,
             lastY: 0,
+            lastCenterX: 0,
+            lastCenterY: 0,
             startTime: 0,
             isLongPress: false,
             isDragging: false,
@@ -42,6 +44,12 @@ class RemoteDesktop {
     setStatus(status, text) {
         this.statusIndicator.className = status;
         this.statusText.textContent = text;
+    }
+    
+    _safeEmit(event, data) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit(event, data);
+        }
     }
     
     setupSocket() {
@@ -85,7 +93,9 @@ class RemoteDesktop {
     
     initPlayer(streamUrl) {
         if (this.flvPlayer) {
-            this.flvPlayer.destroy();
+            try {
+                this.flvPlayer.destroy();
+            } catch (e) {}
             this.flvPlayer = null;
         }
         
@@ -123,12 +133,18 @@ class RemoteDesktop {
                     }
                 }
             });
+
+            this.flvPlayer.on(flvjs.Events.ERROR, (errorType, errorDetail, errorInfo) => {
+                console.error('FLV error:', errorType, errorDetail, errorInfo);
+            });
         }
     }
     
     getVideoRect() {
         const rect = this.videoElement.getBoundingClientRect();
-        const videoRatio = this.videoElement.videoWidth / this.videoElement.videoHeight;
+        const videoW = this.videoElement.videoWidth || 1920;
+        const videoH = this.videoElement.videoHeight || 1080;
+        const videoRatio = videoW / videoH;
         const containerRatio = rect.width / rect.height;
         
         let displayWidth, displayHeight, offsetX, offsetY;
@@ -153,6 +169,21 @@ class RemoteDesktop {
         };
     }
     
+    _getTouchCenter(touches) {
+        if (touches.length === 1) {
+            return { x: touches[0].clientX, y: touches[0].clientY };
+        }
+        let sumX = 0, sumY = 0;
+        for (let i = 0; i < touches.length; i++) {
+            sumX += touches[i].clientX;
+            sumY += touches[i].clientY;
+        }
+        return {
+            x: sumX / touches.length,
+            y: sumY / touches.length
+        };
+    }
+    
     screenToDesktop(clientX, clientY) {
         const rect = this.getVideoRect();
         const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
@@ -169,10 +200,10 @@ class RemoteDesktop {
             e.preventDefault();
             e.stopPropagation();
             
-            const touch = e.touches[0];
             this.touchState.fingers = e.touches.length;
             
             if (e.touches.length === 1) {
+                const touch = e.touches[0];
                 this.touchState.active = true;
                 this.touchState.startX = touch.clientX;
                 this.touchState.startY = touch.clientY;
@@ -185,12 +216,21 @@ class RemoteDesktop {
                 this.touchState.longPressTimer = setTimeout(() => {
                     this.touchState.isLongPress = true;
                     this.touchState.isDragging = true;
-                    this.socket.emit('mouse:right:down');
+                    this._safeEmit('mouse:right:down');
                 }, this.touchState.longPressDelay);
                 
             } else if (e.touches.length === 2) {
-                this.touchState.lastX = touch.clientX;
-                this.touchState.lastY = touch.clientY;
+                const center = this._getTouchCenter(e.touches);
+                this.touchState.lastCenterX = center.x;
+                this.touchState.lastCenterY = center.y;
+                if (this.touchState.longPressTimer) {
+                    clearTimeout(this.touchState.longPressTimer);
+                    this.touchState.longPressTimer = null;
+                }
+                if (this.touchState.isDragging && !this.touchState.isLongPress) {
+                    this._safeEmit('mouse:left:up');
+                    this.touchState.isDragging = false;
+                }
             }
         }, { passive: false });
         
@@ -198,11 +238,11 @@ class RemoteDesktop {
             e.preventDefault();
             e.stopPropagation();
             
-            const touch = e.touches[0];
-            const currentX = touch.clientX;
-            const currentY = touch.clientY;
-            
             if (e.touches.length === 1 && this.touchState.active) {
+                const touch = e.touches[0];
+                const currentX = touch.clientX;
+                const currentY = touch.clientY;
+                
                 const dx = currentX - this.touchState.startX;
                 const dy = currentY - this.touchState.startY;
                 
@@ -215,12 +255,12 @@ class RemoteDesktop {
                     
                     if (!this.touchState.isDragging && !this.touchState.isLongPress) {
                         this.touchState.isDragging = true;
-                        this.socket.emit('mouse:left:down');
+                        this._safeEmit('mouse:left:down');
                     }
                     
                     const moveDx = currentX - this.touchState.lastX;
                     const moveDy = currentY - this.touchState.lastY;
-                    this.socket.emit('mouse:move:rel', {
+                    this._safeEmit('mouse:move:rel', {
                         dx: moveDx,
                         dy: moveDy
                     });
@@ -230,16 +270,17 @@ class RemoteDesktop {
                 this.touchState.lastY = currentY;
                 
             } else if (e.touches.length === 2) {
-                const moveDy = currentY - this.touchState.lastY;
-                const moveDx = currentX - this.touchState.lastX;
+                const center = this._getTouchCenter(e.touches);
+                const moveDy = center.y - this.touchState.lastCenterY;
+                const moveDx = center.x - this.touchState.lastCenterX;
                 
                 if (Math.abs(moveDy) > 2 || Math.abs(moveDx) > 2) {
-                    this.socket.emit('mouse:wheel', {
+                    this._safeEmit('mouse:wheel', {
                         dx: Math.round(-moveDx * 2),
                         dy: Math.round(-moveDy * 4)
                     });
-                    this.touchState.lastX = currentX;
-                    this.touchState.lastY = currentY;
+                    this.touchState.lastCenterX = center.x;
+                    this.touchState.lastCenterY = center.y;
                 }
             }
         }, { passive: false });
@@ -255,19 +296,24 @@ class RemoteDesktop {
             
             if (e.touches.length === 0) {
                 if (this.touchState.isLongPress) {
-                    this.socket.emit('mouse:right:up');
+                    this._safeEmit('mouse:right:up');
                 } else if (this.touchState.isDragging) {
-                    this.socket.emit('mouse:left:up');
+                    this._safeEmit('mouse:left:up');
                 } else if (this.touchState.active) {
                     const pos = this.screenToDesktop(this.touchState.startX, this.touchState.startY);
-                    this.socket.emit('mouse:move:abs', pos);
-                    this.socket.emit('mouse:left:click');
+                    this._safeEmit('mouse:move:abs', pos);
+                    this._safeEmit('mouse:left:click');
                 }
                 
                 this.touchState.active = false;
                 this.touchState.isLongPress = false;
                 this.touchState.isDragging = false;
                 this.touchState.fingers = 0;
+            } else if (e.touches.length === 1) {
+                this.touchState.fingers = 1;
+                const touch = e.touches[0];
+                this.touchState.lastX = touch.clientX;
+                this.touchState.lastY = touch.clientY;
             }
         }, { passive: false });
         
@@ -278,9 +324,9 @@ class RemoteDesktop {
                 this.touchState.longPressTimer = null;
             }
             if (this.touchState.isLongPress) {
-                this.socket.emit('mouse:right:up');
+                this._safeEmit('mouse:right:up');
             } else if (this.touchState.isDragging) {
-                this.socket.emit('mouse:left:up');
+                this._safeEmit('mouse:left:up');
             }
             this.touchState.active = false;
             this.touchState.isLongPress = false;
@@ -310,11 +356,11 @@ class RemoteDesktop {
                 if (this.activeModifiers.has(key)) {
                     this.activeModifiers.delete(key);
                     btn.classList.remove('active');
-                    this.socket.emit('key:up', { key });
+                    this._safeEmit('key:up', { key });
                 } else {
                     this.activeModifiers.add(key);
                     btn.classList.add('active');
-                    this.socket.emit('key:down', { key });
+                    this._safeEmit('key:down', { key });
                 }
             });
         });
@@ -329,7 +375,7 @@ class RemoteDesktop {
         document.querySelectorAll('.shortcut-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const keys = btn.dataset.keys.split(',');
-                this.socket.emit('key:combination', { keys });
+                this._safeEmit('key:combination', { keys });
             });
         });
     }
@@ -337,10 +383,10 @@ class RemoteDesktop {
     sendKeyWithModifiers(key) {
         if (this.activeModifiers.size > 0) {
             const keys = [...this.activeModifiers, key];
-            this.socket.emit('key:combination', { keys });
+            this._safeEmit('key:combination', { keys });
             this.clearModifiers();
         } else {
-            this.socket.emit('key:press', { key });
+            this._safeEmit('key:press', { key });
         }
     }
     
@@ -358,7 +404,7 @@ class RemoteDesktop {
         const sendText = () => {
             const text = textInput.value.trim();
             if (text) {
-                this.socket.emit('paste:text', { text });
+                this._safeEmit('paste:text', { text });
             }
         };
         
@@ -367,7 +413,7 @@ class RemoteDesktop {
         textInput.addEventListener('input', (e) => {
             const text = e.target.value;
             if (text.length > 0 && (text.charCodeAt(text.length - 1) > 127 || text.length > 10)) {
-                this.socket.emit('paste:text', { text });
+                this._safeEmit('paste:text', { text });
                 e.target.value = '';
             }
         });

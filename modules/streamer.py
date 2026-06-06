@@ -5,18 +5,33 @@ import socket
 import os
 import re
 
+from .config import get_stream_config, get_advanced_config, get_server_config
+
 class Streamer:
-    def __init__(self, host='0.0.0.0', port=8081, framerate=30, video_bitrate='4M'):
+    def __init__(self, host='127.0.0.1', port=None):
+        server_cfg = get_server_config()
+        stream_cfg = get_stream_config()
+        advanced_cfg = get_advanced_config()
+        
         self.host = host
-        self.port = port
-        self.framerate = framerate
-        self.video_bitrate = video_bitrate
+        self.port = port if port else server_cfg['flv_port']
+        self.framerate = stream_cfg['framerate']
+        self.video_bitrate = stream_cfg['video_bitrate']
+        self.audio_bitrate = stream_cfg['audio_bitrate']
+        self.audio_sample_rate = stream_cfg['audio_sample_rate']
+        self.gop_size = stream_cfg['gop_size']
+        self.b_frames = stream_cfg['b_frames']
+        self.use_hwaccel = stream_cfg['use_hwaccel']
+        self.ffmpeg_loglevel = advanced_cfg['ffmpeg_loglevel']
+        
         self.process = None
         self._monitor_thread = None
         self._running = False
         self.use_nvenc = self._check_nvenc()
 
     def _check_nvenc(self):
+        if self.use_hwaccel == 'disable':
+            return False
         try:
             result = subprocess.run(
                 ['ffmpeg', '-hide_banner', '-encoders'],
@@ -59,8 +74,11 @@ class Streamer:
     def _get_resolution(self):
         try:
             import ctypes
-            user32 = ctypes.windll.user32
-            return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+            import platform
+            if platform.system() == 'Windows':
+                user32 = ctypes.windll.user32
+                return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+            return 1920, 1080
         except Exception:
             return 1920, 1080
 
@@ -68,7 +86,7 @@ class Streamer:
         width, height = self._get_resolution()
         audio_device = self._find_audio_device()
 
-        cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'error']
+        cmd = ['ffmpeg', '-hide_banner', '-loglevel', self.ffmpeg_loglevel]
 
         if self.use_nvenc:
             cmd.extend([
@@ -95,8 +113,8 @@ class Streamer:
                 '-c:v', 'h264_nvenc',
                 '-preset', 'p1',
                 '-tune', 'zerolatency',
-                '-bf', '0',
-                '-g', '30',
+                '-bf', str(self.b_frames),
+                '-g', str(self.gop_size),
                 '-b:v', self.video_bitrate,
                 '-maxrate', self.video_bitrate,
                 '-bufsize', self.video_bitrate,
@@ -106,8 +124,8 @@ class Streamer:
                 '-c:v', 'libx264',
                 '-preset', 'ultrafast',
                 '-tune', 'zerolatency',
-                '-bf', '0',
-                '-g', '30',
+                '-bf', str(self.b_frames),
+                '-g', str(self.gop_size),
                 '-b:v', self.video_bitrate,
                 '-maxrate', self.video_bitrate,
                 '-bufsize', self.video_bitrate,
@@ -116,8 +134,8 @@ class Streamer:
         if audio_device:
             cmd.extend([
                 '-c:a', 'aac',
-                '-b:a', '128k',
-                '-ar', '44100',
+                '-b:a', self.audio_bitrate,
+                '-ar', str(self.audio_sample_rate),
             ])
 
         cmd.extend([
@@ -133,7 +151,7 @@ class Streamer:
             return False
 
         cmd = self._build_command()
-        print(f'Starting streamer with command: {" ".join(cmd)}')
+        print(f'Streamer command: {" ".join(cmd)}')
 
         try:
             self.process = subprocess.Popen(
@@ -183,13 +201,8 @@ class Streamer:
     def is_running(self):
         return self._running and self.process and self.process.poll() is None
 
-    def get_stream_url(self, host=None):
-        if host is None:
-            try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.connect(('8.8.8.8', 80))
-                host = s.getsockname()[0]
-                s.close()
-            except Exception:
-                host = '127.0.0.1'
-        return f'http://{host}:{self.port}/live.flv'
+    def get_proxied_url(self):
+        return '/live.flv'
+
+    def get_internal_url(self):
+        return f'http://127.0.0.1:{self.port}/live.flv'

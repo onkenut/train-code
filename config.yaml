@@ -1,0 +1,26 @@
+server:
+  host: 0.0.0.0
+  http_port: 8000
+  flv_port: 8081
+  debug: false
+
+stream:
+  framerate: 30
+  video_bitrate: 4M
+  audio_bitrate: 128k
+  audio_sample_rate: 44100
+  use_hwaccel: auto
+  gop_size: 30
+  b_frames: 0
+
+mouse:
+  scroll_sensitivity: 4.0
+  move_sensitivity: 1.0
+  long_press_delay: 500
+  move_threshold: 10
+
+advanced:
+  flv_listen_timeout: 30
+  ffmpeg_loglevel: error
+  socketio_ping_timeout: 60
+  socketio_ping_interval: 25

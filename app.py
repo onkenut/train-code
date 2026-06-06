@@ -10,8 +10,15 @@ except ImportError as e:
     sys.exit(1)
 
 import ctypes
-from flask import Flask, render_template, jsonify
+import urllib.request
+from flask import Flask, render_template, jsonify, Response, request
 from flask_socketio import SocketIO, emit
+
+from modules.config import load_config, get_server_config, get_advanced_config
+
+load_config()
+server_cfg = get_server_config()
+advanced_cfg = get_advanced_config()
 
 try:
     from modules.streamer import Streamer
@@ -61,24 +68,56 @@ def is_admin():
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.config['SECRET_KEY'] = 'remote-desktop-secret'
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
+
+socketio = SocketIO(
+    app,
+    async_mode='eventlet',
+    cors_allowed_origins='*',
+    ping_timeout=advanced_cfg['socketio_ping_timeout'],
+    ping_interval=advanced_cfg['socketio_ping_interval']
+)
 
 streamer = None
 if Streamer:
     try:
-        streamer = Streamer(host='0.0.0.0', port=8081)
+        streamer = Streamer(host='127.0.0.1')
     except Exception as e:
         print(f'WARNING: Failed to initialize streamer: {e}')
+
+def _proxy_flv():
+    if not streamer or not streamer.is_running():
+        return Response('Stream not available', status=503)
+    try:
+        internal_url = streamer.get_internal_url()
+        req = urllib.request.Request(internal_url)
+        resp = urllib.request.urlopen(req, timeout=5)
+        headers = []
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        for h in resp.headers.items():
+            if h[0].lower() not in excluded_headers:
+                headers.append(h)
+        return Response(
+            resp,
+            status=resp.getcode(),
+            headers=headers,
+            content_type='video/x-flv'
+        )
+    except Exception as e:
+        return Response(f'Proxy error: {e}', status=502)
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/live.flv')
+def live_flv():
+    return _proxy_flv()
+
 @app.route('/api/status')
 def status():
     return jsonify({
         'streaming': streamer.is_running() if streamer else False,
-        'stream_url': streamer.get_stream_url() if streamer else '',
+        'stream_url': streamer.get_proxied_url() if streamer else '',
         'is_admin': is_admin()
     })
 
@@ -87,9 +126,12 @@ def start_stream():
     if not streamer:
         return jsonify({'success': False, 'message': 'Streamer not available'})
     if streamer.is_running():
-        return jsonify({'success': True, 'message': 'Already streaming'})
+        return jsonify({'success': True, 'message': 'Already streaming', 'stream_url': streamer.get_proxied_url()})
     success = streamer.start()
-    return jsonify({'success': success, 'stream_url': streamer.get_stream_url() if streamer else ''})
+    return jsonify({
+        'success': success,
+        'stream_url': streamer.get_proxied_url() if streamer else ''
+    })
 
 @app.route('/api/stop', methods=['POST'])
 def stop_stream():
@@ -191,8 +233,13 @@ if __name__ == '__main__':
         print('WARNING: Streamer not available, video streaming disabled')
     
     print('=' * 50)
-    print(f'Server started on http://0.0.0.0:8000')
+    print(f'Server started on http://{server_cfg["host"]}:{server_cfg["http_port"]}')
     if streamer:
-        print(f'Stream URL: {streamer.get_stream_url()}')
+        print(f'Stream proxy: /live.flv')
     print('=' * 50)
-    socketio.run(app, host='0.0.0.0', port=8000, debug=False)
+    socketio.run(
+        app,
+        host=server_cfg['host'],
+        port=server_cfg['http_port'],
+        debug=server_cfg['debug']
+    )

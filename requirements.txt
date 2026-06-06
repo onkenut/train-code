@@ -3,3 +3,4 @@ Flask-SocketIO>=5.3.0,<6.0
 eventlet>=0.35.0,<0.37
 pywin32>=306; platform_system == "Windows"
 setuptools>=65.0
+PyYAML>=6.0
