@@ -84,25 +84,43 @@ if Streamer:
     except Exception as e:
         print(f'WARNING: Failed to initialize streamer: {e}')
 
+def _flv_generator(resp):
+    chunk_size = 8192
+    try:
+        while True:
+            chunk = resp.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+    except GeneratorExit:
+        pass
+    except Exception:
+        pass
+    finally:
+        try:
+            resp.close()
+        except Exception:
+            pass
+
 def _proxy_flv():
     if not streamer or not streamer.is_running():
         return Response('Stream not available', status=503)
     try:
         internal_url = streamer.get_internal_url()
         req = urllib.request.Request(internal_url)
-        resp = urllib.request.urlopen(req, timeout=5)
-        headers = []
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        for h in resp.headers.items():
-            if h[0].lower() not in excluded_headers:
-                headers.append(h)
-        return Response(
-            resp,
-            status=resp.getcode(),
-            headers=headers,
-            content_type='video/x-flv'
+        resp = urllib.request.urlopen(req, timeout=10)
+        response = Response(
+            _flv_generator(resp),
+            status=200,
+            mimetype='video/x-flv'
         )
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Cache-Control'] = 'no-cache'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except Exception as e:
+        print(f'FLV proxy error: {e}')
         return Response(f'Proxy error: {e}', status=502)
 
 @app.route('/')
@@ -113,12 +131,23 @@ def index():
 def live_flv():
     return _proxy_flv()
 
+def _get_desktop_resolution():
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    except Exception:
+        return 1920, 1080
+
 @app.route('/api/status')
 def status():
+    width, height = _get_desktop_resolution()
     return jsonify({
         'streaming': streamer.is_running() if streamer else False,
         'stream_url': streamer.get_proxied_url() if streamer else '',
-        'is_admin': is_admin()
+        'is_admin': is_admin(),
+        'desktop_width': width,
+        'desktop_height': height
     })
 
 @app.route('/api/start', methods=['POST'])
