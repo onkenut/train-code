@@ -1,22 +1,57 @@
-import eventlet
-eventlet.monkey_patch()
-
-import os
 import sys
+import os
+
+try:
+    import eventlet
+    eventlet.monkey_patch()
+except ImportError as e:
+    print(f'ERROR: Failed to import eventlet: {e}')
+    print('Please install dependencies: pip install -r requirements.txt')
+    sys.exit(1)
+
 import ctypes
-from flask import Flask, render_template, jsonify, send_from_directory
+from flask import Flask, render_template, jsonify
 from flask_socketio import SocketIO, emit
 
-from modules.streamer import Streamer
-from modules.input_control import (
-    mouse_move_absolute, mouse_move_relative,
-    mouse_left_down, mouse_left_up, mouse_left_click,
-    mouse_right_down, mouse_right_up, mouse_right_click,
-    mouse_middle_down, mouse_middle_up, mouse_middle_click,
-    mouse_wheel,
-    key_down, key_up, key_press, key_combination
-)
-from modules.clipboard import paste_text
+try:
+    from modules.streamer import Streamer
+except ImportError as e:
+    print(f'ERROR: Failed to import streamer module: {e}')
+    Streamer = None
+
+try:
+    from modules.input_control import (
+        mouse_move_absolute, mouse_move_relative,
+        mouse_left_down, mouse_left_up, mouse_left_click,
+        mouse_right_down, mouse_right_up, mouse_right_click,
+        mouse_middle_down, mouse_middle_up, mouse_middle_click,
+        mouse_wheel,
+        key_down, key_up, key_press, key_combination
+    )
+except ImportError as e:
+    print(f'WARNING: Failed to import input_control: {e}')
+    mouse_move_absolute = lambda *a, **k: None
+    mouse_move_relative = lambda *a, **k: None
+    mouse_left_down = lambda *a, **k: None
+    mouse_left_up = lambda *a, **k: None
+    mouse_left_click = lambda *a, **k: None
+    mouse_right_down = lambda *a, **k: None
+    mouse_right_up = lambda *a, **k: None
+    mouse_right_click = lambda *a, **k: None
+    mouse_middle_down = lambda *a, **k: None
+    mouse_middle_up = lambda *a, **k: None
+    mouse_middle_click = lambda *a, **k: None
+    mouse_wheel = lambda *a, **k: None
+    key_down = lambda *a, **k: None
+    key_up = lambda *a, **k: None
+    key_press = lambda *a, **k: None
+    key_combination = lambda *a, **k: None
+
+try:
+    from modules.clipboard import paste_text
+except ImportError as e:
+    print(f'WARNING: Failed to import clipboard: {e}')
+    paste_text = lambda *a, **k: False
 
 def is_admin():
     try:
@@ -28,7 +63,12 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 app.config['SECRET_KEY'] = 'remote-desktop-secret'
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 
-streamer = Streamer(host='0.0.0.0', port=8081)
+streamer = None
+if Streamer:
+    try:
+        streamer = Streamer(host='0.0.0.0', port=8081)
+    except Exception as e:
+        print(f'WARNING: Failed to initialize streamer: {e}')
 
 @app.route('/')
 def index():
@@ -37,21 +77,24 @@ def index():
 @app.route('/api/status')
 def status():
     return jsonify({
-        'streaming': streamer.is_running(),
-        'stream_url': streamer.get_stream_url(),
+        'streaming': streamer.is_running() if streamer else False,
+        'stream_url': streamer.get_stream_url() if streamer else '',
         'is_admin': is_admin()
     })
 
 @app.route('/api/start', methods=['POST'])
 def start_stream():
+    if not streamer:
+        return jsonify({'success': False, 'message': 'Streamer not available'})
     if streamer.is_running():
         return jsonify({'success': True, 'message': 'Already streaming'})
     success = streamer.start()
-    return jsonify({'success': success, 'stream_url': streamer.get_stream_url()})
+    return jsonify({'success': success, 'stream_url': streamer.get_stream_url() if streamer else ''})
 
 @app.route('/api/stop', methods=['POST'])
 def stop_stream():
-    streamer.stop()
+    if streamer:
+        streamer.stop()
     return jsonify({'success': True})
 
 @socketio.on('connect')
@@ -139,11 +182,17 @@ if __name__ == '__main__':
         print('WARNING: Not running as administrator. Some features may not work.')
         print('Please restart with administrator privileges for full functionality.')
     
-    try:
-        streamer.start()
-    except Exception as e:
-        print(f'Failed to start streamer: {e}')
+    if streamer:
+        try:
+            streamer.start()
+        except Exception as e:
+            print(f'Failed to start streamer: {e}')
+    else:
+        print('WARNING: Streamer not available, video streaming disabled')
     
+    print('=' * 50)
     print(f'Server started on http://0.0.0.0:8000')
-    print(f'Stream URL: {streamer.get_stream_url()}')
+    if streamer:
+        print(f'Stream URL: {streamer.get_stream_url()}')
+    print('=' * 50)
     socketio.run(app, host='0.0.0.0', port=8000, debug=False)

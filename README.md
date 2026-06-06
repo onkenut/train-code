@@ -15,21 +15,21 @@
 ## 技术栈
 
 ### 服务端 (笔记本)
-- **Python 3.9+** + **Flask** + **Flask-SocketIO** (Eventlet)
-- **FFmpeg**: ddagrab/NVENC 硬件采集编码，HTTP-FLV 推流
-- **pywin32**: SendInput 键鼠注入，剪贴板操作
+- Python 3.9+ + Flask + Flask-SocketIO (Eventlet)
+- FFmpeg: ddagrab/NVENC 硬件采集编码，HTTP-FLV 推流
+- pywin32: SendInput 键鼠注入，剪贴板操作
 
 ### 前端 (平板浏览器)
-- **flv.js**: MSE 低延迟直播播放
-- **Socket.IO Client**: 实时信令通信
-- **原生触控事件**: 手势识别与坐标映射
+- flv.js: MSE 低延迟直播播放
+- Socket.IO Client: 实时信令通信
+- 原生触控事件: 手势识别与坐标映射
 
 ## 环境要求
 
 ### 笔记本
 - Windows 10/11
 - NVIDIA 独立显卡 (推荐，支持 NVENC)
-- Python 3.9+
+- Python 3.9 - 3.12 (推荐 3.10/3.11)
 - FFmpeg (已添加到系统 PATH)
 - 管理员权限运行
 
@@ -38,6 +38,18 @@
 - 同一局域网
 
 ## 快速开始
+
+### 0. 环境准备
+
+确保已安装：
+- Python 3.9 - 3.12 (推荐 3.10/3.11)
+- FFmpeg (已添加到系统 PATH)
+
+验证:
+```bash
+python --version
+ffmpeg -version
+```
 
 ### 1. 启动服务
 
@@ -49,12 +61,14 @@
 
 **方式二：命令行启动**
 ```bash
-# 安装依赖
+# 1. 安装依赖
 pip install -r requirements.txt
 
-# 以管理员身份运行
+# 2. 以管理员身份运行 PowerShell/CMD，然后执行：
 python app.py
 ```
+
+**注意**: 必须以管理员身份运行，否则键鼠控制功能受限。
 
 ### 2. 平板连接
 
@@ -136,6 +150,15 @@ RemoteDesktop/
 5. 首次运行会自动安装 Python 依赖
 
 ## 常见问题
+
+**Q: 启动报错 `ModuleNotFoundError: No module named 'distutils'`？**
+- 这是 Python 3.12+ 的兼容性问题，请确保使用 `requirements.txt` 中的 eventlet >= 0.35.0
+- 执行: `pip install --upgrade -r requirements.txt`
+
+**Q: 导入模块失败？**
+- 确保在项目根目录执行 `python app.py`
+- 确保已安装所有依赖: `pip install -r requirements.txt`
+- 如果 pywin32 导入失败，尝试: `pip install pywin32 --upgrade`
 
 **Q: 视频无法播放？**
 - 检查 FFmpeg 是否正确安装并添加到 PATH

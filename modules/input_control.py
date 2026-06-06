@@ -1,8 +1,16 @@
 import ctypes
 import ctypes.wintypes
-import math
+import sys
+import platform
 
-user32 = ctypes.windll.user32
+user32 = None
+IS_WINDOWS = platform.system() == 'Windows'
+
+if IS_WINDOWS:
+    try:
+        user32 = ctypes.windll.user32
+    except Exception:
+        user32 = None
 
 INPUT_MOUSE = 0
 INPUT_KEYBOARD = 1
@@ -198,8 +206,15 @@ VIRTUAL_KEY_MAP = {
     'pause': VK_PAUSE,
 }
 
-SCREEN_WIDTH = user32.GetSystemMetrics(0)
-SCREEN_HEIGHT = user32.GetSystemMetrics(1)
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+
+if user32:
+    try:
+        SCREEN_WIDTH = user32.GetSystemMetrics(0)
+        SCREEN_HEIGHT = user32.GetSystemMetrics(1)
+    except Exception:
+        pass
 
 
 class MOUSEINPUT(ctypes.Structure):
@@ -247,6 +262,8 @@ class INPUT(ctypes.Structure):
 
 
 def _send_input(*inputs):
+    if not user32:
+        return 0
     nInputs = len(inputs)
     LPINPUT = INPUT * nInputs
     pInputs = LPINPUT(*inputs)
@@ -342,6 +359,8 @@ def mouse_wheel(delta_x, delta_y):
 
 
 def key_down(vk):
+    if not user32:
+        return
     if isinstance(vk, str):
         vk_lower = vk.lower()
         if vk_lower in VIRTUAL_KEY_MAP:
@@ -355,6 +374,8 @@ def key_down(vk):
 
 
 def key_up(vk):
+    if not user32:
+        return
     if isinstance(vk, str):
         vk_lower = vk.lower()
         if vk_lower in VIRTUAL_KEY_MAP:

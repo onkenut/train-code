@@ -1,11 +1,18 @@
-import win32clipboard
-import win32con
 import time
+try:
+    import win32clipboard
+    import win32con
+except ImportError:
+    win32clipboard = None
+    win32con = None
+
 from . import input_control
 
 CF_UNICODETEXT = 13
 
 def get_clipboard_text():
+    if not win32clipboard:
+        return None
     try:
         win32clipboard.OpenClipboard()
         try:
@@ -19,6 +26,8 @@ def get_clipboard_text():
         return None
 
 def set_clipboard_text(text):
+    if not win32clipboard:
+        return False
     try:
         win32clipboard.OpenClipboard()
         try:
@@ -31,6 +40,8 @@ def set_clipboard_text(text):
         return False
 
 def paste_text(text):
+    if not win32clipboard:
+        return False
     original_text = get_clipboard_text()
     try:
         if not set_clipboard_text(text):
