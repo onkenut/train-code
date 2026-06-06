@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/static/manifest.json">
+    <title>Remote Desktop</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="container">
+        <div id="video-container">
+            <video id="video-player" muted playsinline></video>
+            <div id="touch-layer"></div>
+        </div>
+        
+        <div id="status-bar">
+            <span id="status-indicator" class="disconnected"></span>
+            <span id="status-text">未连接</span>
+            <span id="latency-text"></span>
+        </div>
+
+        <div id="keyboard-toggle" class="toggle-btn">
+            <span>⌨️</span>
+        </div>
+
+        <div id="virtual-keyboard" class="collapsed">
+            <div class="keyboard-header">
+                <span>虚拟键盘</span>
+                <button id="keyboard-close">×</button>
+            </div>
+            
+            <div class="modifiers-row">
+                <button class="modifier-key" data-key="ctrl">Ctrl</button>
+                <button class="modifier-key" data-key="shift">Shift</button>
+                <button class="modifier-key" data-key="alt">Alt</button>
+                <button class="modifier-key" data-key="win">Win</button>
+            </div>
+            
+            <div class="function-row">
+                <button class="func-key" data-key="esc">Esc</button>
+                <button class="func-key" data-key="tab">Tab</button>
+                <button class="func-key" data-key="enter">Enter</button>
+                <button class="func-key" data-key="backspace">⌫</button>
+                <button class="func-key" data-key="delete">Del</button>
+            </div>
+            
+            <div class="arrow-row">
+                <div class="arrow-group">
+                    <button class="arrow-key" data-key="up">↑</button>
+                    <div class="arrow-bottom">
+                        <button class="arrow-key" data-key="left">←</button>
+                        <button class="arrow-key" data-key="down">↓</button>
+                        <button class="arrow-key" data-key="right">→</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="shortcuts-row">
+                <button class="shortcut-btn" data-keys="alt,f4">Alt+F4</button>
+                <button class="shortcut-btn" data-keys="ctrl,w">Ctrl+W</button>
+                <button class="shortcut-btn" data-keys="ctrl,shift,esc">任务管理器</button>
+                <button class="shortcut-btn" data-keys="alt,tab">Alt+Tab</button>
+                <button class="shortcut-btn" data-keys="win,d">显示桌面</button>
+            </div>
+
+            <div class="text-input-row">
+                <textarea id="text-input" placeholder="点击输入文本（支持中文）"></textarea>
+                <button id="send-text">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flv.js@1.6.2/dist/flv.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
