@@ -111,7 +111,7 @@ html, body {
     transition: background 0.2s;
     -webkit-user-select: none;
     user-select: none;
-    touch-action: none;
+    touch-action: manipulation;
 }
 
 .toggle-btn:active {

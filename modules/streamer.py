@@ -90,15 +90,16 @@ class Streamer:
 
         if self.use_nvenc:
             cmd.extend([
-                '-vsync', '0',
-                '-f', 'ddagrab',
-                '-framerate', str(self.framerate),
-                '-i', 'desktop'
+                '-init_hw_device', 'd3d11va=hw',
+                '-filter_hw_device', 'hw',
+                '-filter_complex',
+                f'ddagrab=video_size={width}x{height}:framerate={self.framerate}:output_idx=0,hwdownload,format=bgra'
             ])
         else:
             cmd.extend([
                 '-f', 'gdigrab',
                 '-framerate', str(self.framerate),
+                '-video_size', f'{width}x{height}',
                 '-i', 'desktop'
             ])
 
@@ -112,12 +113,14 @@ class Streamer:
             cmd.extend([
                 '-c:v', 'h264_nvenc',
                 '-preset', 'p1',
-                '-tune', 'zerolatency',
+                '-tune', 'll',
                 '-bf', str(self.b_frames),
                 '-g', str(self.gop_size),
                 '-b:v', self.video_bitrate,
                 '-maxrate', self.video_bitrate,
                 '-bufsize', self.video_bitrate,
+                '-zerolatency', '1',
+                '-delay', '0',
             ])
         else:
             cmd.extend([

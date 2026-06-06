@@ -185,39 +185,39 @@ def handle_mouse_move_rel(data):
     mouse_move_relative(data.get('dx', 0), data.get('dy', 0))
 
 @socketio.on('mouse:left:down')
-def handle_mouse_left_down():
+def handle_mouse_left_down(data=None):
     mouse_left_down()
 
 @socketio.on('mouse:left:up')
-def handle_mouse_left_up():
+def handle_mouse_left_up(data=None):
     mouse_left_up()
 
 @socketio.on('mouse:left:click')
-def handle_mouse_left_click():
+def handle_mouse_left_click(data=None):
     mouse_left_click()
 
 @socketio.on('mouse:right:down')
-def handle_mouse_right_down():
+def handle_mouse_right_down(data=None):
     mouse_right_down()
 
 @socketio.on('mouse:right:up')
-def handle_mouse_right_up():
+def handle_mouse_right_up(data=None):
     mouse_right_up()
 
 @socketio.on('mouse:right:click')
-def handle_mouse_right_click():
+def handle_mouse_right_click(data=None):
     mouse_right_click()
 
 @socketio.on('mouse:middle:down')
-def handle_mouse_middle_down():
+def handle_mouse_middle_down(data=None):
     mouse_middle_down()
 
 @socketio.on('mouse:middle:up')
-def handle_mouse_middle_up():
+def handle_mouse_middle_up(data=None):
     mouse_middle_up()
 
 @socketio.on('mouse:middle:click')
-def handle_mouse_middle_click():
+def handle_mouse_middle_click(data=None):
     mouse_middle_click()
 
 @socketio.on('mouse:wheel')

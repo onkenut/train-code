@@ -513,70 +513,73 @@ class RemoteDesktop {
         let isDragging = false;
         let startX, startY, startLeft, startTop;
         let hasMoved = false;
+        const DRAG_THRESHOLD = 12;
         
-        const onTouchStart = (e) => {
+        btn.addEventListener('click', (e) => {
+            if (!hasMoved) {
+                keyboard.classList.toggle('collapsed');
+            }
+        });
+        
+        const onPointerDown = (e) => {
             try {
-                const touch = e.touches ? e.touches[0] : e;
                 isDragging = true;
                 hasMoved = false;
-                startX = touch.clientX;
-                startY = touch.clientY;
+                startX = e.clientX;
+                startY = e.clientY;
                 
                 const rect = btn.getBoundingClientRect();
                 startLeft = rect.left;
                 startTop = rect.top;
                 
                 btn.style.transition = 'none';
+                btn.setPointerCapture(e.pointerId);
             } catch (e) {}
         };
         
-        const onTouchMove = (e) => {
+        const onPointerMove = (e) => {
             if (!isDragging) return;
             try {
-                e.preventDefault();
-                const touch = e.touches ? e.touches[0] : e;
-                const dx = touch.clientX - startX;
-                const dy = touch.clientY - startY;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
                 
-                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
                     hasMoved = true;
                 }
                 
-                let newLeft = startLeft + dx;
-                let newTop = startTop + dy;
-                
-                const safeArea = 16;
-                const maxLeft = window.innerWidth - btn.offsetWidth - safeArea;
-                const maxTop = window.innerHeight - btn.offsetHeight - safeArea;
-                
-                newLeft = Math.max(safeArea, Math.min(maxLeft, newLeft));
-                newTop = Math.max(safeArea, Math.min(maxTop, newTop));
-                
-                btn.style.left = newLeft + 'px';
-                btn.style.top = newTop + 'px';
-                btn.style.right = 'auto';
-                btn.style.bottom = 'auto';
+                if (hasMoved) {
+                    e.preventDefault();
+                    let newLeft = startLeft + dx;
+                    let newTop = startTop + dy;
+                    
+                    const safeArea = 16;
+                    const maxLeft = window.innerWidth - btn.offsetWidth - safeArea;
+                    const maxTop = window.innerHeight - btn.offsetHeight - safeArea;
+                    
+                    newLeft = Math.max(safeArea, Math.min(maxLeft, newLeft));
+                    newTop = Math.max(safeArea, Math.min(maxTop, newTop));
+                    
+                    btn.style.left = newLeft + 'px';
+                    btn.style.top = newTop + 'px';
+                    btn.style.right = 'auto';
+                    btn.style.bottom = 'auto';
+                }
             } catch (e) {}
         };
         
-        const onTouchEnd = (e) => {
+        const onPointerUp = (e) => {
             if (!isDragging) return;
             isDragging = false;
             btn.style.transition = '';
-            
-            if (!hasMoved) {
-                keyboard.classList.toggle('collapsed');
-            }
+            try {
+                btn.releasePointerCapture(e.pointerId);
+            } catch (e) {}
         };
         
-        btn.addEventListener('touchstart', onTouchStart, { passive: true });
-        btn.addEventListener('touchmove', onTouchMove, { passive: false });
-        btn.addEventListener('touchend', onTouchEnd, { passive: true });
-        btn.addEventListener('touchcancel', onTouchEnd, { passive: true });
-        
-        btn.addEventListener('mousedown', onTouchStart);
-        document.addEventListener('mousemove', onTouchMove);
-        document.addEventListener('mouseup', onTouchEnd);
+        btn.addEventListener('pointerdown', onPointerDown);
+        btn.addEventListener('pointermove', onPointerMove);
+        btn.addEventListener('pointerup', onPointerUp);
+        btn.addEventListener('pointercancel', onPointerUp);
         
         btn.addEventListener('dblclick', (e) => {
             e.preventDefault();
