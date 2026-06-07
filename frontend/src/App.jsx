@@ -1,15 +1,17 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Play, Cpu } from 'lucide-react';
+import { Play, Cpu, List } from 'lucide-react';
 import WorkflowList from './pages/WorkflowList';
 import WorkflowEditor from './pages/WorkflowEditor';
 import ExecutionDetail from './pages/ExecutionDetail';
+import ExecutionList from './pages/ExecutionList';
 
 function Navbar() {
   const location = useLocation();
 
   const navItems = [
     { path: '/', label: '工作流', icon: Play },
+    { path: '/executions', label: '执行历史', icon: List },
   ];
 
   return (
@@ -103,6 +105,7 @@ function App() {
         <Routes>
           <Route path="/" element={<WorkflowList />} />
           <Route path="/workflow/:id" element={<WorkflowEditor />} />
+          <Route path="/executions" element={<ExecutionList />} />
           <Route path="/execution/:id" element={<ExecutionDetail />} />
         </Routes>
       </div>
