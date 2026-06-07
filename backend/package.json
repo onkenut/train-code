@@ -1,0 +1,24 @@
+{
+  "name": "flowforge-backend",
+  "version": "1.0.0",
+  "description": "FlowForge 后端引擎",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "sql.js": "^1.10.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.3",
+    "node-cron": "^3.0.3",
+    "uuid": "^9.0.1",
+    "vm2": "^3.9.19",
+    "ws": "^8.16.0",
+    "axios": "^1.6.7",
+    "lru-cache": "^10.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
