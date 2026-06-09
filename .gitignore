@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# PointVault specific
+*.db
+*.db-wal
+*.db-shm
+*.labels
+*.labels.tmp
+*.pcd.tmp
+*.ply.tmp
+.cache/
+.pointvault_cache/
+temp/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# PyInstaller
+*.spec.bak
+build/
+dist/
+__pycache__/
+
+# PyTest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Clean multi-branch pollution (not PointVault)
+node_modules/
+backend/
+frontend/
+.trae/
+package.json
+package-lock.json
+tsconfig.json
+vite.config.*
+pnpm-lock.yaml
