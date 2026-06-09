@@ -467,18 +467,27 @@ class PointVaultMainWindow(QMainWindow):
         return QInputDialog.getText(self, title, label, text=default)
 
     def _tick_render(self) -> None:
-        self._renderer.update_render()
-        self._frame_count += 1
+        try:
+            self._renderer.update_render()
+            self._frame_count += 1
+        except Exception:
+            logger.exception("渲染循环 tick 异常")
 
     def _update_fps(self) -> None:
-        self._fps = float(self._frame_count)
-        self._sb_fps.setText(f"FPS: {self._fps:.0f}")
-        self._frame_count = 0
+        try:
+            self._fps = float(self._frame_count)
+            self._sb_fps.setText(f"FPS: {self._fps:.0f}")
+            self._frame_count = 0
+        except Exception:
+            logger.exception("FPS 更新异常")
 
     def _autosave(self) -> None:
-        if self._project.project_dir is None:
-            return
-        logger.debug("自动保存周期触发")
+        try:
+            if self._project.project_dir is None:
+                return
+            logger.debug("自动保存周期触发")
+        except Exception:
+            logger.exception("自动保存异常")
 
     def _add_history_entry(self, description: str) -> None:
         self._history_list.insertItem(0, description)
@@ -549,7 +558,14 @@ class PointVaultMainWindow(QMainWindow):
         assert proj is not None
         self._sb_project.setText(proj.name)
         self.setWindowTitle(f"PointVault - {proj.name}")
-        self._renderer.initialize()
+        ok = self._renderer.initialize(parent_widget=self._viewer, width=1024, height=768)
+        if not ok:
+            QMessageBox.warning(
+                self,
+                "渲染器初始化",
+                "无法初始化 OpenGL 渲染上下文（可能为 headless/远程桌面环境）。\n"
+                "程序仍可进行项目管理、数据库操作，但 3D 视图将显示占位界面。"
+            )
         self._render_timer.start(); self._autosave_timer.start()
         self._reload_labelsets()
         pcs = self._project.list_pointclouds()

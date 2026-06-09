@@ -108,19 +108,56 @@ class PointCloudRenderer:
         self._viewport_size: Tuple[int, int] = (0, 0)
 
     # ---------- 生命周期 ----------
-    def initialize(self, parent_widget: Any = None) -> None:
-        """初始化可视化器。parent_widget 可为 PySide6 的 QWidget。"""
+    def initialize(self, parent_widget: Any = None, width: int = 1024, height: int = 768) -> bool:
+        """
+        初始化可视化器并创建 OpenGL 上下文。
+
+        **必须调用 create_window() 才能初始化 C++ 侧的 OpenGL 上下文**，
+        否则后续任何 poll_events / add_geometry 调用都会导致 C++ segfault
+        （无任何 Python 错误，程序直接退出）。
+
+        Returns:
+            True 表示初始化成功，False 表示退回空渲染模式（CI/headless 环境）
+        """
+        if self._init_done:
+            return True
         try:
             import open3d as o3d
-            from open3d.visualization import gui, rendering
+            from open3d.visualization import gui, rendering  # noqa: 检查库可用性
         except ImportError as e:
-            raise RuntimeError("Open3D 未安装或版本过低（需要 0.17+）") from e
+            logger.warning(f"Open3D 不可用，使用空渲染模式: {e}")
+            self._init_done = True
+            return False
 
         self._parent_widget = parent_widget
-        # 使用 Open3D 的 headless/legacy Visualizer（兼容嵌入）
-        self._vis = o3d.visualization.VisualizerWithKeyCallback()
-        self._init_done = True
-        logger.info("渲染器初始化完成 (Open3D VisualizerWithKeyCallback)")
+        try:
+            self._vis = o3d.visualization.VisualizerWithKeyCallback()
+            # visible=False: 创建隐藏窗口（不抢焦点），但会初始化 GL 上下文
+            # 注意：若为 headless 环境（无 DISPLAY/EGL），此处仍会失败
+            self._vis.create_window(
+                window_name="PointVault_RenderContext",
+                width=width,
+                height=height,
+                visible=False,
+            )
+            self._viewport_size = (width, height)
+            self._init_done = True
+            logger.info(f"渲染器初始化成功 (Open3D Visualizer, {width}x{height}, 隐藏窗口)")
+            return True
+        except Exception as e:
+            logger.warning(
+                f"Open3D create_window 失败（可能为 headless 环境），"
+                f"退回空渲染模式: {e}"
+            )
+            # 清理半初始化的对象
+            if self._vis is not None:
+                try:
+                    self._vis.destroy_window()
+                except Exception:
+                    pass
+                self._vis = None
+            self._init_done = True  # 标记为"已尝试初始化"，避免重复尝试
+            return False
 
     def get_native_widget(self):
         """获取可嵌入 Qt 的窗口句柄（如果可用）"""
