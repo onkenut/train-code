@@ -18,12 +18,12 @@ from PySide6.QtGui import (
     QKeySequence,
     QPainter,
     QPen,
-    QDialog,
 )
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
     QDockWidget,
     QDoubleSpinBox,
     QFileDialog,
