@@ -230,9 +230,8 @@ class PointVaultMainWindow(QMainWindow):
 
         self._build_ui()
         self._build_menus()
-        self._build_toolbar()
         self._build_statusbar()
-        self._connect_signals()
+        self._build_toolbar()
         self._update_ui_state()
 
     # ============================================================
@@ -240,6 +239,10 @@ class PointVaultMainWindow(QMainWindow):
     # ============================================================
     def _build_ui(self) -> None:
         self._viewer = Viewer3DWidget()
+        self._viewer.mouse_pressed.connect(self._on_viewer_mouse_pressed)
+        self._viewer.mouse_moved.connect(self._on_viewer_mouse_moved)
+        self._viewer.mouse_released.connect(self._on_viewer_mouse_released)
+        self._viewer.key_pressed.connect(self._on_viewer_key)
 
         left_dock = QDockWidget("项目资源", self)
         left_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
@@ -266,7 +269,7 @@ class PointVaultMainWindow(QMainWindow):
         btn_row = QHBoxLayout()
         self._btn_import = QPushButton("📥 导入点云"); self._btn_import.clicked.connect(self._on_import)
         self._btn_remove_pc = QPushButton("❌ 移除"); self._btn_remove_pc.clicked.connect(self._on_remove_pc)
-        self._btn_reload = QPushButton("🔄 重载")
+        self._btn_reload = QPushButton("🔄 重载"); self._btn_reload.clicked.connect(self._fit_view)
         btn_row.addWidget(self._btn_import); btn_row.addWidget(self._btn_remove_pc); btn_row.addWidget(self._btn_reload)
         v.addLayout(btn_row)
         self._pc_list = QListWidget()
@@ -324,6 +327,7 @@ class PointVaultMainWindow(QMainWindow):
 
         bm_box = QGroupBox("相机书签"); bm_layout = QVBoxLayout(bm_box)
         self._bm_list = QListWidget()
+        self._bm_list.itemDoubleClicked.connect(lambda _: self._on_apply_bookmark())
         bm_btn_row = QHBoxLayout()
         self._btn_add_bm = QPushButton("➕ 保存当前视图"); self._btn_add_bm.clicked.connect(self._on_add_bookmark)
         self._btn_apply_bm = QPushButton("📌 跳转"); self._btn_apply_bm.clicked.connect(self._on_apply_bookmark)
@@ -423,7 +427,7 @@ class PointVaultMainWindow(QMainWindow):
 
         def make_tool(text, mode, shortcut):
             act = QAction(text, self, checkable=True); act.setShortcut(shortcut)
-            act.triggered.connect(lambda: self._set_annotation_mode(mode))
+            act.toggled.connect(lambda c, m=mode: c and self._set_annotation_mode(m))
             self._tool_group.addAction(act); return act
 
         self._act_tool_nav = make_tool("🖱️ 导航", AnnotationMode.NAVIGATE, "1")
@@ -431,7 +435,6 @@ class PointVaultMainWindow(QMainWindow):
         self._act_tool_lasso = make_tool("🪢 套索", AnnotationMode.LASSO, "3")
         self._act_tool_brush = make_tool("🖌️ 画笔", AnnotationMode.PAINT_BRUSH, "4")
         self._act_tool_plane = make_tool("📐 RANSAC平面", AnnotationMode.PLANE_RANSAC, "5")
-        self._act_tool_nav.setChecked(True)
         for a in (self._act_tool_nav, self._act_tool_rect, self._act_tool_lasso, self._act_tool_brush, self._act_tool_plane):
             tb.addAction(a)
         tb.addSeparator(); tb.addWidget(QLabel(" 笔刷: "))
@@ -440,6 +443,7 @@ class PointVaultMainWindow(QMainWindow):
         tb.addWidget(QLabel(" 着色: "))
         self._tb_color_mode = QComboBox(); self._tb_color_mode.addItems(["高度", "RGB", "强度", "标签", "法向", "纯色"])
         self._tb_color_mode.setCurrentIndex(0); self._tb_color_mode.currentIndexChanged.connect(self._on_tb_color_changed); tb.addWidget(self._tb_color_mode)
+        self._act_tool_nav.setChecked(True)
 
     def _build_statusbar(self) -> None:
         sb: QStatusBar = self.statusBar()
@@ -448,76 +452,6 @@ class PointVaultMainWindow(QMainWindow):
         self._progress = QProgressBar(); self._progress.setMaximumWidth(200); self._progress.setVisible(False)
         sb.addWidget(self._sb_msg, 1); sb.addPermanentWidget(self._progress); sb.addPermanentWidget(self._sb_points)
         sb.addPermanentWidget(self._sb_fps); sb.addPermanentWidget(self._sb_project)
-
-    def _connect_signals(self) -> None:
-        self._viewer.mouse_pressed.connect(self._on_viewer_mouse_pressed)
-        self._viewer.mouse_moved.connect(self._on_viewer_mouse_moved)
-        self._viewer.mouse_released.connect(self._on_viewer_mouse_released)
-        self._viewer.key_pressed.connect(self._on_viewer_key)
-        # 菜单
-        self._act_new.triggered.connect(self._on_new_project)
-        self._act_open.triggered.connect(self._on_open_project)
-        self._act_close.triggered.connect(self._on_close_project)
-        self._act_import.triggered.connect(self._on_import)
-        self._act_export_lpc.triggered.connect(self._on_export_labeled)
-        self._act_export_ds.triggered.connect(self._on_export_dataset)
-        self._act_export_rpt.triggered.connect(self._on_export_report)
-        self._act_quit.triggered.connect(self.close)
-        self._act_undo.triggered.connect(self._on_undo)
-        self._act_redo.triggered.connect(self._on_redo)
-        self._act_clear_sel.triggered.connect(lambda: self._clear_selection(True))
-        self._act_fit.triggered.connect(self._fit_view)
-        self._act_top.triggered.connect(lambda: self._apply_std_view(StandardView.TOP))
-        self._act_front.triggered.connect(lambda: self._apply_std_view(StandardView.FRONT))
-        self._act_right.triggered.connect(lambda: self._apply_std_view(StandardView.RIGHT))
-        self._act_iso.triggered.connect(lambda: self._apply_std_view(StandardView.ISO))
-        self._act_voxel.triggered.connect(self._on_tool_voxel)
-        self._act_sor.triggered.connect(self._on_tool_sor)
-        self._act_normal.triggered.connect(self._on_tool_normal)
-        self._act_ransac.triggered.connect(self._on_tool_ransac)
-        self._act_about.triggered.connect(self._on_about)
-        # 工具栏 - 选择工具
-        self._act_tool_nav.toggled.connect(lambda c: c and self._set_annotation_mode(AnnotationMode.NAVIGATE))
-        self._act_tool_rect.toggled.connect(lambda c: c and self._set_annotation_mode(AnnotationMode.RECTANGLE))
-        self._act_tool_lasso.toggled.connect(lambda c: c and self._set_annotation_mode(AnnotationMode.LASSO))
-        self._act_tool_brush.toggled.connect(lambda c: c and self._set_annotation_mode(AnnotationMode.PAINT_BRUSH))
-        self._act_tool_plane.toggled.connect(lambda c: c and self._set_annotation_mode(AnnotationMode.PLANE_RANSAC))
-        self._sp_brush.valueChanged.connect(self._on_brush_size_changed)
-        self._cmb_color_mode.currentIndexChanged.connect(self._on_color_mode_changed)
-        self._tb_color_mode.currentChanged.connect(self._on_tb_color_changed)
-        self._sp_point_size.valueChanged.connect(self._on_point_size_changed)
-        # 定时器
-        self._render_timer.timeout.connect(self._tick_render)
-        self._fps_timer.timeout.connect(self._update_fps)
-        self._autosave_timer.timeout.connect(self._autosave)
-        # 左面板：点云列表
-        self._btn_import.clicked.connect(self._on_import)
-        self._btn_remove_pc.clicked.connect(self._on_remove_pc)
-        self._btn_reload_pc.clicked.connect(self._fit_view)
-        self._pc_list.itemChanged.connect(self._on_pc_list_item_changed)
-        self._pc_list.itemSelectionChanged.connect(self._on_pc_selection_changed)
-        # 左面板：标签
-        self._labelset_combo.currentIndexChanged.connect(self._on_labelset_changed)
-        self._btn_edit_labels.clicked.connect(self._on_edit_labels)
-        self._label_tree.itemSelectionChanged.connect(self._on_label_tree_selection)
-        self._btn_assign_label.clicked.connect(self._on_assign_label)
-        self._btn_clear_labels.clicked.connect(self._on_clear_labels)
-        # 左面板：书签
-        self._btn_bm_add.clicked.connect(self._on_add_bookmark)
-        self._btn_bm_apply.clicked.connect(self._on_apply_bookmark)
-        self._btn_bm_del.clicked.connect(self._on_del_bookmark)
-        self._bm_list.itemDoubleClicked.connect(lambda _: self._on_apply_bookmark())
-        self._btn_top.clicked.connect(lambda: self._apply_std_view(StandardView.TOP))
-        self._btn_front.clicked.connect(lambda: self._apply_std_view(StandardView.FRONT))
-        self._btn_right.clicked.connect(lambda: self._apply_std_view(StandardView.RIGHT))
-        self._btn_back.clicked.connect(lambda: self._apply_std_view(StandardView.BACK))
-        self._btn_left.clicked.connect(lambda: self._apply_std_view(StandardView.LEFT))
-        self._btn_iso.clicked.connect(lambda: self._apply_std_view(StandardView.ISO))
-        # 右面板：历史
-        self._btn_undo.clicked.connect(self._on_undo)
-        self._btn_redo.clicked.connect(self._on_redo)
-        # 日志面板
-        self._btn_clear_log.clicked.connect(lambda: self._log_text.clear())
 
     # ============================================================
     # 状态辅助
