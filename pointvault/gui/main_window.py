@@ -1012,26 +1012,50 @@ class PointVaultMainWindow(QMainWindow):
         if clear_ui: self._sb_msg.setText("已清除选择")
 
     def _on_viewer_mouse_pressed(self, event) -> None:
-        if event.button() != Qt.LeftButton or self._annotation_mode == AnnotationMode.NAVIGATE: return
-        w, h = self._viewer.viewport_size(); x, y = event.position().x(), event.position().y()
+        if event.button() != Qt.LeftButton or self._annotation_mode == AnnotationMode.NAVIGATE:
+            return
+        # 前置检查：必须先导入并选中一个点云才能标注
+        if self._annotation_mode != AnnotationMode.NAVIGATE:
+            items = self._pc_list.selectedItems()
+            if not items or self._pc_list.count() == 0:
+                mode_name = self._annotation_mode.name
+                self._sb_msg.setText(f"⚠️ {mode_name} 模式：请先导入点云并在左侧列表中选中它")
+                logger.warning(f"选择模式 {mode_name} 下未选中点云，忽略点击")
+                return
+
+        w, h = self._viewer.viewport_size()
+        x, y = event.position().x(), event.position().y()
         self._is_dragging = True
-        from pointvault.tools.selection_tools import (RectangleSelectTool,LassoSelectTool,PaintBrushTool,RansacPlaneTool)
+        from pointvault.tools.selection_tools import (
+            RectangleSelectTool, LassoSelectTool, PaintBrushTool, RansacPlaneTool
+        )
         try:
             if self._annotation_mode == AnnotationMode.RECTANGLE:
-                self._selection_tool = RectangleSelectTool(); self._selection_tool.begin(x, y, None, w, h, self._view_proj_matrix)
+                self._selection_tool = RectangleSelectTool()
+                # 用 _run_selection 调用 begin，确保传入真实点云
+                self._run_selection(self._selection_tool.begin, x, y)
+                self._viewer.set_preview_rect(self._selection_tool.draw_preview())
             elif self._annotation_mode == AnnotationMode.LASSO:
-                self._selection_tool = LassoSelectTool(); self._selection_tool.begin(x, y)
+                self._selection_tool = LassoSelectTool()
+                self._selection_tool.begin(x, y)  # lasso begin 不需要点云
+                self._viewer.set_preview_polygon(self._selection_tool.polygon_path)
             elif self._annotation_mode == AnnotationMode.PAINT_BRUSH:
                 self._selection_tool = PaintBrushTool(radius=float(self._sp_brush.value()))
-                r = self._run_selection(self._selection_tool.begin, x, y)
-                if isinstance(r, RectangleSelectTool) or r is None: pass
+                # begin + 立即 update 应用第一次选择
+                self._run_selection(self._selection_tool.begin, x, y)
                 self._viewer.set_preview_circle((x, y), self._sp_brush.value())
-                # 立即执行一次 update 以应用第一次选择
                 res = self._run_selection(self._selection_tool.update, x, y)
                 self._apply_selection_result(res)
             elif self._annotation_mode == AnnotationMode.PLANE_RANSAC:
-                self._selection_tool = RansacPlaneTool(); self._selection_tool.begin(x, y, None, w, h, self._view_proj_matrix)
-        except Exception as e: logger.exception(f"选择工具 begin 失败: {e}")
+                self._selection_tool = RansacPlaneTool()
+                # 用 _run_selection 调用 begin，确保传入真实点云
+                self._run_selection(self._selection_tool.begin, x, y)
+                if self._selection_tool._seed_point_index is None:
+                    self._sb_msg.setText("⚠️ 未找到种子点，请点击点云上的位置（平面上至少需要 3 个点）")
+                else:
+                    self._sb_msg.setText(f"✅ 种子点 #{self._selection_tool._seed_point_index} 已选中，松开鼠标开始平面拟合")
+        except Exception as e:
+            logger.exception(f"选择工具 begin 失败: {e}")
 
     def _on_viewer_mouse_moved(self, event) -> None:
         if not self._is_dragging or self._selection_tool is None:

@@ -258,6 +258,43 @@ class SelectionPipeline:
     def __init__(self) -> None:
         self._cache: dict = {}
 
+    # ---------- 公共辅助 ----------
+    @staticmethod
+    def _prepare_points(points, dtype=np.float32) -> Tuple[np.ndarray, int]:
+        """
+        对输入点做统一的防御性处理，返回 (处理后的数组, 点数 N)。
+
+        处理以下异常输入：
+        - None → 返回 (empty(0,3), 0)
+        - 标量数组 shape=() → 返回 (empty(0,3), 0)
+        - 一维数组 shape=(N,) 或 (3,) → 尝试 reshape 为 (N,3) 或 (1,3)
+        - 二维数组但列数 != 3 → 取前 3 列或报错
+        - 空数组 shape=(0, x) → 返回 (empty(0,3), 0)
+        """
+        if points is None:
+            return np.empty((0, 3), dtype=dtype), 0
+        pts = np.asarray(points, dtype=dtype)
+        if pts.ndim == 0:
+            # 0 维标量数组（常见于传入 None + 指定 dtype 后的结果）
+            return np.empty((0, 3), dtype=dtype), 0
+        if pts.ndim == 1:
+            # 一维：可能是 (3,) 单点或 (N*3,) 展平
+            if pts.size == 3:
+                pts = pts.reshape(1, 3)
+            elif pts.size % 3 == 0:
+                pts = pts.reshape(-1, 3)
+            else:
+                return np.empty((0, 3), dtype=dtype), 0
+        if pts.ndim != 2 or pts.shape[1] < 3:
+            # 维度不对或列数不足，安全返回
+            return np.empty((0, 3), dtype=dtype), 0
+        if pts.shape[1] > 3:
+            pts = pts[:, :3]
+        N = pts.shape[0]
+        if N == 0:
+            return pts, 0
+        return pts.astype(dtype, copy=False), N
+
     # ---------- 矩形框选 ----------
     def pick_rectangle(
         self,
@@ -274,8 +311,8 @@ class SelectionPipeline:
         """
         返回选中点的索引数组 (M,) int64
         """
-        points = np.asarray(points, dtype=np.float32)
-        if points.size == 0:
+        points, N = self._prepare_points(points)
+        if N == 0:
             return np.empty(0, dtype=np.int64)
         view_proj = np.asarray(view_proj_matrix, dtype=np.float64).reshape(4, 4)
         vp_inv = np.linalg.inv(view_proj)
@@ -324,7 +361,9 @@ class SelectionPipeline:
     ) -> np.ndarray:
         if len(polygon_xy) < 3:
             return np.empty(0, dtype=np.int64)
-        points = np.asarray(points, dtype=np.float32)
+        points, N = self._prepare_points(points)
+        if N == 0:
+            return np.empty(0, dtype=np.int64)
         view_proj = np.asarray(view_proj_matrix, dtype=np.float64).reshape(4, 4)
         vp_inv = np.linalg.inv(view_proj)
         xs = [p[0] for p in polygon_xy]
@@ -362,8 +401,8 @@ class SelectionPipeline:
         view_proj_matrix: np.ndarray,
         subset_mask: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        points = np.asarray(points, dtype=np.float32)
-        if points.size == 0:
+        points, N = self._prepare_points(points)
+        if N == 0:
             return np.empty(0, dtype=np.int64)
         view_proj = np.asarray(view_proj_matrix, dtype=np.float64).reshape(4, 4)
         vp_inv = np.linalg.inv(view_proj)
@@ -401,8 +440,8 @@ class SelectionPipeline:
         max_screen_dist: float = 5.0,
     ) -> Optional[int]:
         """返回距离鼠标最近的点的索引"""
-        points = np.asarray(points, dtype=np.float32)
-        if points.size == 0:
+        points, N = self._prepare_points(points)
+        if N == 0:
             return None
         view_proj = np.asarray(view_proj_matrix, dtype=np.float64).reshape(4, 4)
         vp_inv = np.linalg.inv(view_proj)
