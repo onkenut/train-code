@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "pixelvault"
+version = "0.1.0"
+description = "本地多媒体资产管理与智能检索中枢"
+authors = ["PixelVault Team"]
+readme = "README.md"
+packages = [{include = "pixelvault"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+PySide6 = "^6.6"
+Pillow = "^10.2"
+opencv-python = "^4.9"
+ffmpeg-python = "^0.2"
+cachetools = "^5.3"
+numpy = "^1.26"
+scikit-learn = "^1.4"
+
+[tool.poetry.extras]
+ai = ["onnxruntime-gpu", "insightface"]
+cpu-ai = ["onnxruntime"]
+
+[tool.poetry.group.ai]
+optional = true
+
+[tool.poetry.group.ai.dependencies]
+onnxruntime-gpu = "^1.17"
+insightface = "^0.7"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-qt = "^4.4"
+ruff = "^0.3"
+
+[tool.poetry.scripts]
+pixelvault = "pixelvault.app:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
