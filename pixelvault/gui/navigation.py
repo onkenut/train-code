@@ -31,8 +31,9 @@ class NavigationDock(QDockWidget):
         layout.setContentsMargins(4, 4, 4, 4)
 
         self.library_tree = QTreeView()
-        self.library_tree.setHeaderLabel("Libraries")
+        self.library_tree.setHeaderHidden(False)
         self.library_model = QStandardItemModel()
+        self.library_model.setHorizontalHeaderLabels(["Libraries"])
         self.library_tree.setModel(self.library_model)
         self.library_tree.clicked.connect(self._on_library_click)
         self.library_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)

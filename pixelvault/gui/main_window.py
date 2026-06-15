@@ -202,6 +202,9 @@ class MainWindow(QMainWindow):
         self.navigation_dock.refresh_libraries()
         self._start_scan(lib_id)
 
+    def _on_scan_requested(self, library_id: int, force: bool):
+        self._start_scan(library_id, force)
+
     def _on_library_selected(self, library_id: int):
         from pixelvault.database.dao import AssetDAO
         assets = AssetDAO().get_by_library(library_id)

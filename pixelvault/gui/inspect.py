@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QSplitter, QListView,
 )
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QPixmap, QImage, QStandardItemModel, QStandardItem
+from PySide6.QtGui import QPixmap, QImage, QStandardItemModel, QStandardItem, QPainter
 
 from pixelvault.database.dao import AssetDAO, MetadataDAO, TagDAO, FaceDAO
 from pixelvault.database.models import Asset, Metadata
@@ -24,11 +24,11 @@ class PreviewPane(QGraphicsView):
         self._scene = QGraphicsScene(self)
         self.setScene(self._scene)
         self._pixmap_item = None
-        self.setRenderHint(self.RenderHint.Antialiasing)
-        self.setRenderHint(self.RenderHint.SmoothPixmapTransform)
-        self.setDragMode(self.DragMode.ScrollHandDrag)
-        self.setTransformationAnchor(self.ViewportAnchor.AnchorUnderMouse)
-        self.setViewportUpdateMode(self.ViewportUpdateMode.SmartViewportUpdate)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.SmartViewportUpdate)
         self.setBackgroundBrush(Qt.GlobalColor.black)
 
     def show_image(self, filepath: str):

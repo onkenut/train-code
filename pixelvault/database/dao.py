@@ -8,10 +8,13 @@ from pixelvault.database.connection import get_connection
 from pixelvault.database.models import Library, Asset, Metadata, ClipVector, Face, Person, Tag, AssetTag, DuplicateGroup
 
 
-class LibraryDAO:
-    def __init__(self):
-        self.conn = get_connection()
+class _BaseDAO:
+    @property
+    def conn(self):
+        return get_connection()
 
+
+class LibraryDAO(_BaseDAO):
     def insert(self, lib: Library) -> int:
         cur = self.conn.execute(
             "INSERT INTO libraries (directory_path, monitoring_enabled) VALUES (?, ?)",
@@ -44,10 +47,7 @@ class LibraryDAO:
         self.conn.commit()
 
 
-class AssetDAO:
-    def __init__(self):
-        self.conn = get_connection()
-
+class AssetDAO(_BaseDAO):
     def insert(self, asset: Asset) -> int:
         cur = self.conn.execute(
             """INSERT OR IGNORE INTO assets
@@ -198,10 +198,7 @@ class AssetDAO:
         self.conn.commit()
 
 
-class MetadataDAO:
-    def __init__(self):
-        self.conn = get_connection()
-
+class MetadataDAO(_BaseDAO):
     def insert(self, meta: Metadata) -> int:
         cur = self.conn.execute(
             """INSERT OR REPLACE INTO metadata
@@ -254,10 +251,7 @@ class MetadataDAO:
         return [r["asset_id"] for r in rows]
 
 
-class ClipVectorDAO:
-    def __init__(self):
-        self.conn = get_connection()
-
+class ClipVectorDAO(_BaseDAO):
     @staticmethod
     def _serialize_vector(vec: np.ndarray) -> bytes:
         return struct.pack(f"{len(vec)}f", *vec)
@@ -329,10 +323,7 @@ class ClipVectorDAO:
         self.conn.commit()
 
 
-class FaceDAO:
-    def __init__(self):
-        self.conn = get_connection()
-
+class FaceDAO(_BaseDAO):
     @staticmethod
     def _serialize_vector(vec: np.ndarray) -> bytes:
         return struct.pack(f"{len(vec)}f", *vec)
@@ -408,10 +399,7 @@ class FaceDAO:
         self.conn.commit()
 
 
-class PersonDAO:
-    def __init__(self):
-        self.conn = get_connection()
-
+class PersonDAO(_BaseDAO):
     def insert(self, person: Person) -> int:
         cur = self.conn.execute(
             "INSERT INTO persons (name, representative_face_path) VALUES (?, ?)",
@@ -450,10 +438,7 @@ class PersonDAO:
         self.conn.commit()
 
 
-class TagDAO:
-    def __init__(self):
-        self.conn = get_connection()
-
+class TagDAO(_BaseDAO):
     def insert(self, tag: Tag) -> int:
         cur = self.conn.execute(
             "INSERT OR IGNORE INTO tags (name, category) VALUES (?, ?)",
@@ -496,10 +481,7 @@ class TagDAO:
         return [(Tag(id=r["id"], name=r["name"], category=r["category"]), r["confidence"]) for r in rows]
 
 
-class AssetTagDAO:
-    def __init__(self):
-        self.conn = get_connection()
-
+class AssetTagDAO(_BaseDAO):
     def assign(self, asset_id: int, tag_id: int, confidence: float = 1.0) -> None:
         self.conn.execute(
             "INSERT OR REPLACE INTO asset_tags (asset_id, tag_id, confidence) VALUES (?, ?, ?)",
