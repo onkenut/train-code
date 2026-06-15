@@ -6,10 +6,10 @@ from PySide6.QtWidgets import (
     QDockWidget, QWidget, QVBoxLayout, QTabWidget,
     QLabel, QScrollArea, QFormLayout, QGroupBox,
     QGraphicsView, QGraphicsScene, QGraphicsPixmapItem,
-    QSplitter, QListView, QStandardItemModel, QStandardItem,
+    QSplitter, QListView,
 )
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QPixmap, QImage, QStandardItemModel, QStandardItem
 
 from pixelvault.database.dao import AssetDAO, MetadataDAO, TagDAO, FaceDAO
 from pixelvault.database.models import Asset, Metadata

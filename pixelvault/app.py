@@ -42,6 +42,7 @@ def run_gui(dev: bool = False):
 
 def run_scan(args):
     setup_logging()
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     from pixelvault.database.connection import initialize_database
     initialize_database()
 
@@ -77,6 +78,7 @@ def run_scan(args):
 
 def run_db_upgrade(args):
     setup_logging()
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     from pixelvault.database.connection import initialize_database
     initialize_database()
     print("Database initialized successfully")
