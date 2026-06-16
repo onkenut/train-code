@@ -164,7 +164,7 @@ class MainWindow(QMainWindow):
         if self._scan_worker and self._scan_worker.isRunning():
             self.status_label.setText("Scan already in progress...")
             return
-        self._scan_worker = ScanWorker(library_id, force)
+        self._scan_worker = ScanWorker(library_id, force, self)
         self._scan_worker.progress.connect(self._on_scan_progress)
         self._scan_worker.finished_signal.connect(self._on_scan_finished)
         self._scan_worker.start()
@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
         if self._ai_worker and self._ai_worker.isRunning():
             self.status_label.setText("AI processing already in progress...")
             return
-        self._ai_worker = AIProcessWorker()
+        self._ai_worker = AIProcessWorker(parent=self)
         self._ai_worker.progress.connect(self._on_ai_progress)
         self._ai_worker.finished_signal.connect(self._on_ai_finished)
         self._ai_worker.start()

@@ -32,7 +32,11 @@ class ThumbnailGenerator:
         try:
             from PIL import Image
             with Image.open(filepath) as img:
-                img.thumbnail(size, Image.Resampling.LANCZOS)
+                try:
+                    resampler = Image.Resampling.LANCZOS
+                except AttributeError:
+                    resampler = Image.LANCZOS
+                img.thumbnail(size, resampler)
                 if img.mode in ("RGBA", "P"):
                     img = img.convert("RGB")
                 img.save(out_path, "WEBP", quality=85)

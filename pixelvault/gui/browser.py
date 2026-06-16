@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QListView, QTableView, QAbstractItemView, QLabel,
     QSizePolicy,
 )
-from PySide6.QtCore import Qt, Signal, QSize, QAbstractListModel, QModelIndex, QSortFilterProxyModel
+from PySide6.QtCore import Qt, Signal, QSize, QAbstractListModel, QModelIndex, QSortFilterProxyModel, QObject
 from PySide6.QtGui import QPixmap, QIcon, QPainter, QColor, QFont
 
 from pixelvault.database.models import Asset, SearchResult, DuplicateGroup
@@ -23,6 +23,7 @@ class ThumbnailModel(QAbstractListModel):
         self._thumbnails = {}
         self._thumb_gen = ThumbnailGenerator()
         self._placeholder = self._create_placeholder()
+        self._workers: List[QObject] = []
 
     def _create_placeholder(self) -> QPixmap:
         pixmap = QPixmap(128, 128)
@@ -42,6 +43,15 @@ class ThumbnailModel(QAbstractListModel):
         self._thumbnails = {}
         self.endResetModel()
 
+        for w in self._workers:
+            try:
+                if hasattr(w, "isRunning") and w.isRunning():
+                    w.quit()
+                    w.wait(100)
+            except Exception:
+                pass
+        self._workers.clear()
+
         for asset in assets:
             self._load_thumbnail(asset)
 
@@ -49,9 +59,22 @@ class ThumbnailModel(QAbstractListModel):
         from PySide6.QtCore import QThread
         from pixelvault.gui.workers import ThumbnailLoadWorker
 
-        worker = ThumbnailLoadWorker(asset.id, asset.absolute_path, THUMB_SMALL)
+        worker = ThumbnailLoadWorker(asset.id, asset.absolute_path, THUMB_SMALL, self)
         worker.loaded.connect(self._on_thumbnail_loaded)
+        worker.finished.connect(lambda w=worker: self._cleanup_worker(w))
+        self._workers.append(worker)
         worker.start()
+
+    def _cleanup_worker(self, worker):
+        try:
+            if worker in self._workers:
+                self._workers.remove(worker)
+        except Exception:
+            pass
+        try:
+            worker.deleteLater()
+        except Exception:
+            pass
 
     def _on_thumbnail_loaded(self, asset_id: int, thumb_path: str):
         row = None
@@ -60,11 +83,14 @@ class ThumbnailModel(QAbstractListModel):
                 row = i
                 break
         if row is not None:
-            pixmap = QPixmap(thumb_path)
-            if not pixmap.isNull():
-                self._thumbnails[asset_id] = pixmap
-                index = self.index(row)
-                self.dataChanged.emit(index, index)
+            try:
+                pixmap = QPixmap(thumb_path)
+                if not pixmap.isNull():
+                    self._thumbnails[asset_id] = pixmap
+                    index = self.index(row)
+                    self.dataChanged.emit(index, index)
+            except Exception as e:
+                logger.debug(f"Failed to load thumbnail pixmap: {e}")
 
     def rowCount(self, parent=QModelIndex()):
         return len(self._assets)
@@ -80,7 +106,8 @@ class ThumbnailModel(QAbstractListModel):
         elif role == Qt.ItemDataRole.DecorationRole:
             return self._thumbnails.get(asset.id, self._placeholder)
         elif role == Qt.ItemDataRole.ToolTipRole:
-            return f"{asset.filename}\n{asset.absolute_path}\n{asset.width}x{asset.height}"
+            dims = f"{asset.width}x{asset.height}" if asset.width and asset.height else ""
+            return f"{asset.filename}\n{asset.absolute_path}\n{dims}"
         elif role == Qt.ItemDataRole.UserRole:
             return asset.id
 

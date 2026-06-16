@@ -32,22 +32,29 @@ class PreviewPane(QGraphicsView):
         self.setBackgroundBrush(Qt.GlobalColor.black)
 
     def show_image(self, filepath: str):
-        pixmap = QPixmap(filepath)
-        if pixmap.isNull():
-            self._scene.clear()
-            text = self._scene.addText("Unable to load image")
-            text.setDefaultTextColor(Qt.GlobalColor.white)
-            return
+        try:
+            pixmap = QPixmap(filepath)
+            if pixmap.isNull():
+                self._scene.clear()
+                text = self._scene.addText("Unable to load image")
+                text.setDefaultTextColor(Qt.GlobalColor.white)
+                return
 
-        self._scene.clear()
-        self._pixmap_item = QGraphicsPixmapItem(pixmap)
-        self._scene.addItem(self._pixmap_item)
-        self._scene.setSceneRect(pixmap.rect())
-        self.fitInView(self._pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
+            self._scene.clear()
+            self._pixmap_item = QGraphicsPixmapItem(pixmap)
+            self._scene.addItem(self._pixmap_item)
+            self._scene.setSceneRect(pixmap.rect())
+            self.fitInView(self._pixmap_item, Qt.AspectRatioMode.KeepAspectRatio)
+        except Exception as e:
+            logger.debug(f"PreviewPane.show_image failed: {e}")
+            self._scene.clear()
 
     def wheelEvent(self, event):
-        factor = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
-        self.scale(factor, factor)
+        try:
+            factor = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
+            self.scale(factor, factor)
+        except Exception:
+            pass
 
     def clear(self):
         self._scene.clear()
@@ -104,43 +111,51 @@ class InspectDock(QDockWidget):
         self.setWidget(container)
 
     def show_asset(self, asset_id: int):
-        asset = self.asset_dao.get_by_id(asset_id)
-        if not asset:
-            return
+        try:
+            asset = self.asset_dao.get_by_id(asset_id)
+            if not asset:
+                self.clear_inspector()
+                return
 
-        self._preview.show_image(asset.absolute_path)
-        self._show_exif(asset)
-        self._show_tags(asset_id)
-        self._show_faces(asset_id)
+            self._preview.show_image(asset.absolute_path)
+            self._show_exif(asset)
+            self._show_tags(asset_id)
+            self._show_faces(asset_id)
+        except Exception as e:
+            logger.error(f"InspectDock.show_asset failed: {e}")
+            self.clear_inspector()
 
     def _show_exif(self, asset: Asset):
-        while self._exif_layout.rowCount() > 0:
-            self._exif_layout.removeRow(0)
+        try:
+            while self._exif_layout.rowCount() > 0:
+                self._exif_layout.removeRow(0)
 
-        self._exif_layout.addRow("Filename:", QLabel(asset.filename))
-        self._exif_layout.addRow("Path:", QLabel(asset.absolute_path))
-        self._exif_layout.addRow("Size:", QLabel(f"{asset.file_size:,} bytes"))
-        self._exif_layout.addRow("Type:", QLabel(asset.media_type))
-        if asset.width and asset.height:
-            self._exif_layout.addRow("Resolution:", QLabel(f"{asset.width} x {asset.height}"))
-        if asset.duration:
-            self._exif_layout.addRow("Duration:", QLabel(f"{asset.duration:.1f}s"))
+            self._exif_layout.addRow("Filename:", QLabel(asset.filename))
+            self._exif_layout.addRow("Path:", QLabel(asset.absolute_path))
+            self._exif_layout.addRow("Size:", QLabel(f"{asset.file_size:,} bytes"))
+            self._exif_layout.addRow("Type:", QLabel(asset.media_type))
+            if asset.width and asset.height:
+                self._exif_layout.addRow("Resolution:", QLabel(f"{asset.width} x {asset.height}"))
+            if asset.duration:
+                self._exif_layout.addRow("Duration:", QLabel(f"{asset.duration:.1f}s"))
 
-        meta = self.metadata_dao.get_by_asset(asset.id)
-        if meta and meta.exif_json:
-            try:
-                exif = json.loads(meta.exif_json)
-                for key, value in exif.items():
-                    if key != "GPSInfo" and isinstance(value, (str, int, float)):
-                        self._exif_layout.addRow(f"{key}:", QLabel(str(value)))
+            meta = self.metadata_dao.get_by_asset(asset.id)
+            if meta and meta.exif_json:
+                try:
+                    exif = json.loads(meta.exif_json)
+                    for key, value in exif.items():
+                        if key != "GPSInfo" and isinstance(value, (str, int, float)):
+                            self._exif_layout.addRow(f"{key}:", QLabel(str(value)))
 
-                if meta.gps_longitude is not None and meta.gps_latitude is not None:
-                    self._exif_layout.addRow(
-                        "GPS:",
-                        QLabel(f"{meta.gps_latitude:.4f}, {meta.gps_longitude:.4f}"),
-                    )
-            except json.JSONDecodeError:
-                pass
+                    if meta.gps_longitude is not None and meta.gps_latitude is not None:
+                        self._exif_layout.addRow(
+                            "GPS:",
+                            QLabel(f"{meta.gps_latitude:.4f}, {meta.gps_longitude:.4f}"),
+                        )
+                except json.JSONDecodeError:
+                    pass
+        except Exception as e:
+            logger.error(f"InspectDock._show_exif failed: {e}")
 
     def _show_tags(self, asset_id: int):
         self._tags_model.clear()
